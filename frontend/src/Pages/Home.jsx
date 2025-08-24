@@ -43,7 +43,7 @@ const Home = () => {
             </div>
             {/* Trust Indicators */}
             <div className="mt-12 flex flex-col sm:flex-row items-center gap-6 justify-center md:justify-start">
-              <div className="flex items-center">
+              {/* <div className="flex items-center">
                 <div className="flex -space-x-2">
                   {[1, 2, 3, 4].map((item) => (
                     <img
@@ -57,7 +57,7 @@ const Home = () => {
                 <span className="ml-3 text-sm text-gray-600">
                   Trusted by <span className="font-semibold">50,000+</span> users
                 </span>
-              </div>
+              </div> */}
               <div className="flex items-center">
                 <div className="flex items-center justify-center w-10 h-10 bg-[#ecfeff] rounded-full">
                   <svg className="w-5 h-5 text-[#0891b2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,14 +80,14 @@ const Home = () => {
                   </svg>
                 </div>
                 {/* Floating Stats Cards */}
-                <div className="absolute -bottom-8 -left-8 bg-white p-4 rounded-lg shadow-md border border-gray-100 w-36 animate-float">
+                {/* <div className="absolute -bottom-8 -left-8 bg-white p-4 rounded-lg shadow-md border border-gray-100 w-36 animate-float">
                   <div className="text-xs text-gray-500">Daily Checkups</div>
                   <div className="text-xl font-bold text-[#0891b2]">2,500+</div>
-                </div>
-                <div className="absolute -top-8 -right-8 bg-[#0891b2] p-3 rounded-lg shadow-md text-white w-32 animate-float-delayed">
+                </div> */}
+                {/* <div className="absolute -top-8 -right-8 bg-[#0891b2] p-3 rounded-lg shadow-md text-white w-32 animate-float-delayed">
                   <div className="text-xs">Verified</div>
                   <div className="text-sm font-semibold">Doctors</div>
-                </div>
+                </div> */}
               </div>
               {/* Decorative Elements */}
               <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-[#a5f3fc] opacity-20 -z-10"></div>

@@ -1,3 +1,4 @@
+// Update src/main.jsx to include the new route
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import {
@@ -11,6 +12,7 @@ import React from 'react';
 import Login from './Pages/Login.jsx';
 import Signup from './Pages/Signup.jsx';
 import Home from './Pages/Home.jsx';
+import Appointment from './Pages/Appointment.jsx'; // Add this import
 import { AnimatePresence } from 'framer-motion';
 
 const router = createBrowserRouter(
@@ -19,6 +21,7 @@ const router = createBrowserRouter(
       <Route path='/login' element={<Login />} />
       <Route path='/signup' element={<Signup />} />
       <Route path='/' element={<Home />} />
+      <Route path='/appointment' element={<Appointment />} /> {/* Add this route */}
     </Route>
   )
 );
