@@ -97,7 +97,7 @@ const Navbar = () => {
               }`}
               onClick={toggleMobileMenu}
             >
-              Home
+              Hom
             </Link>
             <Link
               to="/signup"
