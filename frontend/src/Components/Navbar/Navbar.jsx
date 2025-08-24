@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import '../../Styles/Navbar.css';
+import { FaStethoscope } from 'react-icons/fa';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +22,7 @@ const Navbar = () => {
               to="/" 
               className="group flex items-center space-x-2 focus:outline-none animate-logo"
             >
+              <FaStethoscope className="text-[#0891b2] text-2xl mr-2" />
               <span className="text-3xl font-extrabold tracking-tight">
                 <span className="text-[#0891b2] group-hover:text-[#0e7490] transition-colors duration-300">Rog</span>
                 <span className="text-[#0e7490] group-hover:text-[#155e75] transition-colors duration-300">Mitra</span>
