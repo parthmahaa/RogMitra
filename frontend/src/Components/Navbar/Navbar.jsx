@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import '../../Styles/Navbar.css';
 import { FaStethoscope } from 'react-icons/fa';
 
-const Navbar = () => {
+const Navbar = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -32,40 +31,24 @@ const Navbar = () => {
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center space-x-1 text-gray-700 hover:text-[#0891b2] transition-colors duration-300 group"
+            <Link
+              to="/"
+              className={`flex items-center space-x-1 text-gray-700 hover:text-[#0891b2] transition-colors duration-300 ${
+                location.pathname === '/' ? 'font-semibold text-[#0891b2]' : ''
+              }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              <span className="text-sm font-medium"></span>
-            </button>
-            
-            <div className="relative group">
-              <button
-                onClick={() => navigate('/signup')}
-                className="p-2 rounded-full text-gray-700 hover:text-[#0891b2] hover:bg-gray-100 focus:outline-none transition-all duration-300 flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </button>
-            </div>
+              <span className="text-sm font-medium">Home</span>
+            </Link>
+            {children}
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-4">
             <button
-              onClick={() => navigate('/')}
-              className="p-2 rounded-full text-gray-700 hover:text-[#0891b2] hover:bg-gray-100 transition-colors duration-300"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </button>
-            <button
-              onClick={toggleMobileMenu}
+              onClick={() => toggleMobileMenu()}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-[#0891b2] hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0891b2] transition-all duration-300 transform hover:scale-110"
               aria-expanded={mobileMenuOpen}
             >

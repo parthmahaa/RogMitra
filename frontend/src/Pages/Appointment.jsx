@@ -1,37 +1,93 @@
-// Update src/Pages/Appointment.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaHistory, FaDownload, FaArrowRight } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import API from '../Services/api';
+import useAuthStore from '../store/store';
 
 const Appointment = () => {
   const [symptoms, setSymptoms] = useState('');
   const [output, setOutput] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { token, user } = useAuthStore();
 
-  // Simulated history data
-  const mockHistory = [
-    {
-      date: 'August 23, 2025',
-      symptoms: 'Headache, fatigue',
-      diagnosis: 'Possible migraine',
-      recommendations: 'Rest, hydrate, consult doctor if persists'
-    },
-    {
-      date: 'August 20, 2025',
-      symptoms: 'Cough, sore throat',
-      diagnosis: 'Common cold',
-      recommendations: 'Warm fluids, rest'
+  // Move fetchHistory outside useEffect so it can be called anywhere
+  const fetchHistory = async () => {
+    try {
+      const response = await API.get('/appointment/history');
+      setHistory(response.data);
+      setError('');
+    } catch (err) {
+      console.error(
+        'History fetch error:',
+        err.response?.data || err.message,
+        'Status:',
+        err.response?.status
+      );
+      if (err.response?.status === 401) {
+        setError(
+          'Authentication required to fetch history. Please log in again.'
+        );
+        useAuthStore.getState().logout();
+        navigate('/login');
+      } else {
+        setError('Error fetching history. Please try again.');
+      }
     }
-  ];
+  };
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (token) {
+      fetchHistory();
+    }
+  }, [token]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setOutput({
-      diagnosis: 'Possible condition based on symptoms',
-      recommendations: 'Sample recommendations: Rest, medication, etc.',
-      report: 'Detailed report content here...'
-    });
+    if (!symptoms.trim()) {
+      setError('Please enter your symptoms.');
+      return;
+    }
+    try {
+      const response = await API.post('/appointment/analyze', { symptoms });
+      setOutput(response.data);
+      if (token) {
+        fetchHistory();
+      }
+    } catch (err) {
+      console.error(
+        'Analyze error:',
+        err.response?.data || err.message,
+        'Status:',
+        err.response?.status
+      );
+      if (err.response?.status === 401) {
+        if (err.response?.data?.message.includes('Google API key')) {
+          setError('API configuration error. Please contact support.');
+        } else {
+          setError('Session expired. Please log in again.');
+          useAuthStore.getState().logout();
+          navigate('/login');
+        }
+      } else if (err.response?.status === 429) {
+        setError('Daily request limit reached (3 requests per day).');
+      } else if (err.response?.status === 403 && !token) {
+        setError('Guest users are limited to one request. Please log in.');
+        navigate('/login');
+      } else if (err.response?.status === 400) {
+        setError(
+          err.response?.data?.message ||
+            'Invalid symptoms provided. Please try again.'
+        );
+      } else {
+        setError(
+          err.response?.data?.message ||
+            'Error analyzing symptoms. Please try again.'
+        );
+      }
+    }
   };
 
   const handleDownload = () => {
@@ -47,40 +103,20 @@ const Appointment = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] to-[#ecfeff] py-12 px-4 relative">
-      {/* History Button with Dropdown */}
       <div className="fixed top-20 right-4 z-50">
         <button
-          onClick={() => setShowHistory(!showHistory)}
-          className="flex items-center bg-[#0891b2] hover:bg-[#0e7490] text-white py-2 px-4 rounded-lg font-medium transition-all hover:shadow-lg"
+          onClick={() => (token ? fetchHistory() : navigate('/login'))}
+          disabled={!token}
+          className={`flex items-center py-2 px-4 rounded-lg font-medium transition-all hover:shadow-lg ${
+            token
+              ? 'bg-[#0891b2] hover:bg-[#0e7490] text-white'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           <FaHistory className="" />
         </button>
-        {showHistory && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg p-4 z-50"
-          >
-            <h2 className="text-xl font-bold text-[#155e75] mb-2">History</h2>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {mockHistory.map((item, index) => (
-                <div key={index} className="border-b border-gray-200 pb-2 last:border-0">
-                  <h3 className="font-semibold text-[#0891b2]">{item.date}</h3>
-                  <p className="text-gray-700 text-sm"><strong>Symptoms:</strong> {item.symptoms}</p>
-                  <p className="text-gray-700 text-sm"><strong>Diagnosis:</strong> {item.diagnosis}</p>
-                  <p className="text-gray-700 text-sm"><strong>Recommendations:</strong> {item.recommendations}</p>
-                </div>
-              ))}
-              {mockHistory.length === 0 && (
-                <p className="text-gray-600 text-center text-sm">No history available yet.</p>
-              )}
-            </div>
-          </motion.div>
-        )}
       </div>
 
-      {/* Main Content */}
       <div className="max-w-4xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -94,6 +130,16 @@ const Appointment = () => {
             Enter your symptoms for AI-driven analysis
           </p>
         </motion.div>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-red-500 text-center mb-8"
+          >
+            {error}
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -111,6 +157,7 @@ const Appointment = () => {
                 placeholder="e.g., headache, fever, fatigue..."
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0891b2] text-base bg-white text-gray-700 placeholder-[#0891b2]/50 transition-all"
                 rows={4}
+                required
               />
             </div>
             <button
@@ -133,11 +180,15 @@ const Appointment = () => {
             </h2>
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-[#0891b2]">Possible Diagnosis</h3>
+                <h3 className="text-lg font-semibold text-[#0891b2]">
+                  Possible Diagnosis
+                </h3>
                 <p className="text-gray-700">{output.diagnosis}</p>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#0891b2]">Recommendations</h3>
+                <h3 className="text-lg font-semibold text-[#0891b2]">
+                  Recommendations
+                </h3>
                 <p className="text-gray-700">{output.recommendations}</p>
               </div>
             </div>
@@ -149,8 +200,6 @@ const Appointment = () => {
             </button>
           </motion.div>
         )}
-
-       
       </div>
     </div>
   );
