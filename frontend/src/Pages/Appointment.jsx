@@ -10,6 +10,7 @@ const Appointment = () => {
   const [output, setOutput] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false); // New state for dropdown
   const navigate = useNavigate();
   const { token, user } = useAuthStore();
 
@@ -105,7 +106,14 @@ const Appointment = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] to-[#ecfeff] py-12 px-4 relative">
       <div className="fixed top-20 right-4 z-50">
         <button
-          onClick={() => (token ? fetchHistory() : navigate('/login'))}
+          onClick={() => {
+            if (token) {
+              fetchHistory();
+              setShowHistoryDropdown(!showHistoryDropdown);
+            } else {
+              navigate('/login');
+            }
+          }}
           disabled={!token}
           className={`flex items-center py-2 px-4 rounded-lg font-medium transition-all hover:shadow-lg ${
             token
@@ -113,8 +121,42 @@ const Appointment = () => {
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          <FaHistory className="" />
+          <FaHistory />
         </button>
+        {showHistoryDropdown && token && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg p-4 z-50"
+          >
+            <h2 className="text-xl font-bold text-[#155e75] mb-2">History</h2>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {history.length > 0 ? (
+                history.map((item, index) => (
+                  <div key={index} className="border-b border-gray-200 pb-2 last:border-0">
+                    <h3 className="font-semibold text-[#0891b2]">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </h3>
+                    <p className="text-gray-700 text-sm">
+                      <strong>Symptoms:</strong> {item.symptoms}
+                    </p>
+                    <p className="text-gray-700 text-sm">
+                      <strong>Diagnosis:</strong> {item.diagnosis}
+                    </p>
+                    <p className="text-gray-700 text-sm">
+                      <strong>Recommendations:</strong> {item.recommendations}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-600 text-center text-sm">
+                  No history available yet.
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
       </div>
 
       <div className="max-w-4xl mx-auto relative z-10">
