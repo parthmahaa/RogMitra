@@ -12,7 +12,8 @@ const Login = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const setAuth = useAuthStore((state) => state.setAuth);
+
+  const login = useAuthStore((state) => state.login);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -33,11 +34,13 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
     try {
       const response = await API.post('/auth/login', { email, password });
       const { token, user } = response.data;
-      setAuth(token, user); 
-      localStorage.setItem('token', token);
+      login(user, token);
+
       navigate('/');
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
@@ -47,6 +50,7 @@ const Login = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen font-poppins bg-gradient-to-br from-[#f0fdfa] to-[#ecfeff]">
+      {/* Left Illustration */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -72,6 +76,8 @@ const Login = () => {
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Login Form */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -83,6 +89,7 @@ const Login = () => {
             <h2 className="text-3xl font-bold text-[#155e75]">Welcome Back</h2>
             <p className="text-[#0891b2]">Please sign in to your account</p>
           </motion.div>
+
           <AnimatePresence>
             {error && (
               <motion.div
@@ -95,7 +102,9 @@ const Login = () => {
               </motion.div>
             )}
           </AnimatePresence>
+
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <motion.div variants={itemVariants}>
               <label className="block text-[#0891b2] font-medium mb-2">Email</label>
               <input
@@ -107,6 +116,8 @@ const Login = () => {
                 required
               />
             </motion.div>
+
+            {/* Password */}
             <motion.div variants={itemVariants} className="relative">
               <label className="block text-[#0891b2] font-medium mb-2">Password</label>
               <input
@@ -122,13 +133,11 @@ const Login = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-10 text-gray-500 hover:text-[#0891b2]"
               >
-                {showPassword ? (
-                  <FaEyeSlash className="text-lg" />
-                ) : (
-                  <FaEye className="text-lg" />
-                )}
+                {showPassword ? <FaEyeSlash className="text-lg" /> : <FaEye className="text-lg" />}
               </button>
             </motion.div>
+
+            {/* Remember Me */}
             <motion.div
               variants={itemVariants}
               className="flex justify-between items-center text-sm text-[#0891b2]"
@@ -144,6 +153,8 @@ const Login = () => {
                 Forgot password?
               </Link>
             </motion.div>
+
+            {/* Submit */}
             <motion.div variants={itemVariants} className="flex flex-col gap-3 mt-2">
               <button
                 type="submit"
@@ -153,19 +164,15 @@ const Login = () => {
                   Sign In <FaArrowRight className="ml-2" />
                 </span>
               </button>
-              {/* <button
-                type="button"
-                className="flex items-center justify-center gap-3 py-3 px-4 rounded-lg font-medium transition-all border border-[#0891b2] hover:bg-[#ecfeff] text-[#0891b2] hover:shadow"
-              >
-                Continue with Google
-              </button> */}
             </motion.div>
           </form>
+
+          {/* Signup Link */}
           <motion.div
             variants={itemVariants}
             className="text-center text-sm text-[#0891b2] pb-4"
           >
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link
               to="/signup"
               className="font-medium text-[#0e7490] hover:text-[#155e75] transition-colors"

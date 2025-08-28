@@ -15,7 +15,9 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
-  const setAuth = useAuthStore((state) => state.setAuth);
+
+  // ✅ use the login method from store (handles user+token persistence)
+  const login = useAuthStore((state) => state.login);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -32,25 +34,35 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
+
     try {
       const response = await API.post("/auth/register", {
         name,
         email,
         password,
       });
-      setAuth(response.data.token, response.data.user);
+
+      const { token, user } = response.data;
+
+      // ✅ directly log user in using store
+      login(user, token);
+
       navigate("/appointment");
     } catch (err) {
+      console.error("Registration error:", err.response?.data || err.message);
       setError(err.response?.data?.message || "Registration failed");
     }
   };
 
   return (
     <div className="flex flex-col md:flex-row-reverse min-h-screen font-poppins bg-gradient-to-br from-[#f0fdfa] to-[#ecfeff]">
+      {/* Left illustration */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -90,6 +102,7 @@ const Register = () => {
         </div>
       </motion.div>
 
+      {/* Signup Form */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -125,6 +138,7 @@ const Register = () => {
               )}
 
               <form onSubmit={handleSubmit} className="flex flex-col space-y-5">
+                {/* Name */}
                 <motion.div variants={itemVariants}>
                   <input
                     type="text"
@@ -136,6 +150,7 @@ const Register = () => {
                   />
                 </motion.div>
 
+                {/* Email */}
                 <motion.div variants={itemVariants}>
                   <input
                     type="email"
@@ -147,6 +162,7 @@ const Register = () => {
                   />
                 </motion.div>
 
+                {/* Password */}
                 <motion.div variants={itemVariants} className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -165,6 +181,7 @@ const Register = () => {
                   </button>
                 </motion.div>
 
+                {/* Confirm Password */}
                 <motion.div variants={itemVariants} className="relative">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
@@ -183,6 +200,7 @@ const Register = () => {
                   </button>
                 </motion.div>
 
+                {/* Terms */}
                 <motion.div
                   variants={itemVariants}
                   className="flex items-center text-sm text-[#0891b2]"
@@ -201,6 +219,7 @@ const Register = () => {
                   </label>
                 </motion.div>
 
+                {/* Submit */}
                 <motion.div variants={itemVariants} className="flex flex-col gap-3 mt-2">
                   <button
                     type="submit"
@@ -210,16 +229,11 @@ const Register = () => {
                       Register <FaArrowRight className="ml-2" />
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-3 py-3 px-4 rounded-lg font-medium transition-all border border-[#0891b2] hover:bg-[#ecfeff] text-[#0891b2] hover:shadow"
-                  >
-                    Continue with Google
-                  </button>
                 </motion.div>
               </form>
             </motion.div>
 
+            {/* Already have account */}
             <motion.div
               variants={itemVariants}
               className="text-center text-sm text-[#0891b2] pb-4"
