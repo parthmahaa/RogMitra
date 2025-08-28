@@ -30,7 +30,7 @@ const rateLimitMiddleware = async (req, res, next) => {
     user.lastRequestDate = new Date();
   }
 
-  if (user.requestCount >= 3) {
+  if (user.requestCount >= 200) {
     return res.status(429).json({ message: 'Daily request limit reached (3 requests per day)' });
   }
 
