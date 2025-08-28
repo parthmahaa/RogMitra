@@ -2,25 +2,17 @@ import axios from 'axios';
 import History from '../models/History.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI=new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
-
-/*
-      DONE 1. Create a prompt here using the model or change the model if needed. 
-      DONE 2. filter out the response from the model and send it to the client according to the history schema given belwo
-      DONE 3. save the history to the database
-      DONE 4. return the response
-    */
 
 
 const analyzeSymptoms = async (req, res) => {
-  const { symptoms } = req.body;  //"symptoms" TO BE CHANGED TO "userInput"
+  const { shivangNoLodo } = req.body;  
   const userId = req.isGuest ? null : req.user?._id;
-
-  if (!symptoms || typeof symptoms !== 'string') {  //"symptoms" TO BE CHANGED TO "userInput"
+  
+  if (!shivangNoLodo || typeof shivangNoLodo !== 'string') {  //"symptoms" TO BE CHANGED TO "userInput"
     return res.status(400).json({ message: 'Symptoms are required and must be a string' });
   }
-
+  
+  const genAI=new GoogleGenerativeAI(process.env.GEMINI_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
   const promptTemplate = 
@@ -79,24 +71,29 @@ const analyzeSymptoms = async (req, res) => {
   `;
 
   try {
-    const finalprompt = promptTemplate.replace('{{USER_INPUT}}', symptoms /* "symptoms" TO BE CHANGED TO "userInput"*/);
+    const finalprompt = promptTemplate.replace('{{USER_INPUT}}', shivangNoLodo /* "symptoms" TO BE CHANGED TO "userInput"*/);
 
     const result = await model.generateContent(finalprompt);
     const response = await result.response;
     const text = response.text();
 
-    const cleanedJsonString = text.replace(/^```json\s*|```$/g, '');
+    // Improved JSON extraction: find the first '{' and last '}' and parse only that substring
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+      throw new Error('Could not find valid JSON object in Gemini response');
+    }
+    const cleanedJsonString = text.substring(firstBrace, lastBrace + 1);
     const parsedData = JSON.parse(cleanedJsonString);
 
     const { symptoms, diagnosis, recommendations, report } = parsedData;
     
-    
     if (userId) {
       const history = new History({
         userId,
-        symptoms, // "symptoms" TO BE CHANGED TO "userInput"
-        diagnosis,
-        recommendations,
+        symptoms: JSON.stringify(symptoms), 
+        diagnosis: JSON.stringify(diagnosis), 
+        recommendations: JSON.stringify(recommendations), 
         report,
       });
       await history.save();
@@ -126,7 +123,37 @@ const getHistory = async (req, res) => {
   }
   try {
     const history = await History.find({ userId: req.user._id }).sort({ date: -1 });
-    res.json(history);
+    // Parse JSON strings back to arrays/objects for frontend, with error handling
+    const parsedHistory = history.map(item => {
+      let symptoms = [];
+      let diagnosis = [];
+      let recommendations = [];
+      try {
+        symptoms = item.symptoms ? JSON.parse(item.symptoms) : [];
+      } catch (e) {
+        console.error('Error parsing symptoms JSON:', e.message, item.symptoms);
+        symptoms = item.symptoms;
+      }
+      try {
+        diagnosis = item.diagnosis ? JSON.parse(item.diagnosis) : [];
+      } catch (e) {
+        console.error('Error parsing diagnosis JSON:', e.message, item.diagnosis);
+        diagnosis = item.diagnosis;
+      }
+      try {
+        recommendations = item.recommendations ? JSON.parse(item.recommendations) : [];
+      } catch (e) {
+        console.error('Error parsing recommendations JSON:', e.message, item.recommendations);
+        recommendations = item.recommendations;
+      }
+      return {
+        ...item.toObject(),
+        symptoms,
+        diagnosis,
+        recommendations,
+      };
+    });
+    res.json(parsedHistory);
   } catch (error) {
     console.error('Error fetching history:', error.message);
     res.status(500).json({ message: 'Error fetching history' });

@@ -52,7 +52,7 @@ const Appointment = () => {
       return;
     }
     try {
-      const response = await API.post('/appointment/analyze', { symptoms });
+      const response = await API.post('/appointment/analyze', { shivangNoLodo : symptoms });
       setOutput(response.data);
       if (token) {
         fetchHistory();
@@ -136,17 +136,33 @@ const Appointment = () => {
                 history.map((item, index) => (
                   <div key={index} className="border-b border-gray-200 pb-2 last:border-0">
                     <h3 className="font-semibold text-[#0891b2]">
-                      {new Date(item.createdAt).toLocaleDateString()}
+                      {new Date(item.date).toLocaleDateString()}
                     </h3>
                     <p className="text-gray-700 text-sm">
-                      <strong>Symptoms:</strong> {item.symptoms}
+                      <strong>Symptoms:</strong> {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
                     </p>
-                    <p className="text-gray-700 text-sm">
-                      <strong>Diagnosis:</strong> {item.diagnosis}
-                    </p>
-                    <p className="text-gray-700 text-sm">
-                      <strong>Recommendations:</strong> {item.recommendations}
-                    </p>
+                    <div className="text-gray-700 text-sm">
+                      <strong>Diagnosis:</strong>
+                      <ul className="list-disc ml-5">
+                        {Array.isArray(item.diagnosis)
+                          ? item.diagnosis.map((diag, i) => (
+                              <li key={i}>
+                                <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
+                              </li>
+                            ))
+                          : <li>{item.diagnosis}</li>
+                        }
+                      </ul>
+                    </div>
+                    <div className="text-gray-700 text-sm">
+                      <strong>Recommendations:</strong>
+                      <ul className="list-disc ml-5">
+                        {Array.isArray(item.recommendations)
+                          ? item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
+                          : <li>{item.recommendations}</li>
+                        }
+                      </ul>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -225,13 +241,27 @@ const Appointment = () => {
                 <h3 className="text-lg font-semibold text-[#0891b2]">
                   Possible Diagnosis
                 </h3>
-                <p className="text-gray-700">{output.diagnosis}</p>
+                <ul className="list-disc ml-5">
+                  {Array.isArray(output.diagnosis)
+                    ? output.diagnosis.map((diag, i) => (
+                        <li key={i}>
+                          <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
+                        </li>
+                      ))
+                    : <li>{output.diagnosis}</li>
+                  }
+                </ul>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-[#0891b2]">
                   Recommendations
                 </h3>
-                <p className="text-gray-700">{output.recommendations}</p>
+                <ul className="list-disc ml-5">
+                  {Array.isArray(output.recommendations)
+                    ? output.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
+                    : <li>{output.recommendations}</li>
+                  }
+                </ul>
               </div>
             </div>
             <button

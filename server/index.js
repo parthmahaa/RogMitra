@@ -11,7 +11,7 @@ const app = express();
 connectDb();
 
 app.use((req, res, next) => {
-  console.log('Incoming request:', req.method, req.url, 'Headers:', req.headers);
+  console.log('Incoming request:', req.method, req.url);
   next();
 });
 app.use(cors({
