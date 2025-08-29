@@ -41,7 +41,7 @@ const Home = () => {
               </Link>
             </div>
             {/* Trust Indicators */}
-            <div className="mt-12 flex flex-col sm:flex-row items-center gap-6 justify-center md:justify-start">
+            {/* <div className="mt-12 flex flex-col sm:flex-row items-center gap-6 justify-center md:justify-start">
               <div className="flex items-center">
                 <div className="flex items-center justify-center w-10 h-10 bg-[#ecfeff] rounded-full">
                   <svg className="w-5 h-5 text-[#0891b2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +52,7 @@ const Home = () => {
                   <span className="font-semibold">99%</span> Accuracy Rate
                 </span>
               </div>
-            </div>
+            </div> */}
           </div>
           {/* Hero Illustration */}
           <div className="flex-1 flex justify-center mb-10 md:mb-0 relative animate-slide-in">
