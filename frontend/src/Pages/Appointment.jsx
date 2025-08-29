@@ -10,11 +10,10 @@ const Appointment = () => {
   const [output, setOutput] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
-  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false); // New state for dropdown
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
   const navigate = useNavigate();
   const { token, user } = useAuthStore();
 
-  // Move fetchHistory outside useEffect so it can be called anywhere
   const fetchHistory = async () => {
     try {
       const response = await API.get('/appointment/history');
@@ -128,20 +127,25 @@ const Appointment = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg p-4 z-50"
+            className="absolute top-full right-0 mt-2 w-110 bg-white rounded-lg shadow-lg p-4 z-50 overflow-y-auto max-h-80"
           >
             <h2 className="text-xl font-bold text-[#155e75] mb-2">History</h2>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-4">
               {history.length > 0 ? (
                 history.map((item, index) => (
-                  <div key={index} className="border-b border-gray-200 pb-2 last:border-0">
+                    <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gray-50 p-3 rounded-lg border border-gray-200"
+                  >
                     <h3 className="font-semibold text-[#0891b2]">
                       {new Date(item.date).toLocaleDateString()}
                     </h3>
-                    <p className="text-gray-700 text-sm">
+                    <p className="text-gray-700 text-xs mt-1">
                       <strong>Symptoms:</strong> {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
                     </p>
-                    <div className="text-gray-700 text-sm">
+                    <div className="text-gray-700 text-xs mt-1">
                       <strong>Diagnosis:</strong>
                       <ul className="list-disc ml-5">
                         {Array.isArray(item.diagnosis)
@@ -154,7 +158,7 @@ const Appointment = () => {
                         }
                       </ul>
                     </div>
-                    <div className="text-gray-700 text-sm">
+                    <div className="text-gray-700 text-xs mt-1">
                       <strong>Recommendations:</strong>
                       <ul className="list-disc ml-5">
                         {Array.isArray(item.recommendations)
@@ -163,7 +167,7 @@ const Appointment = () => {
                         }
                       </ul>
                     </div>
-                  </div>
+                        </motion.div>
                 ))
               ) : (
                 <p className="text-gray-600 text-center text-sm">
@@ -175,7 +179,7 @@ const Appointment = () => {
         )}
       </div>
 
-      <div className="max-w-4xl mx-auto relative z-10">
+      <div className="max-w-4xl mx-25 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
