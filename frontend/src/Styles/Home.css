@@ -74,3 +74,5 @@
 .animate-wave { animation: wave-x 20s linear infinite; }
 .animate-wave-delayed { animation: wave-x 15s linear infinite reverse; }
 .animate-wave-slow { animation: wave-x 25s linear infinite; }
+
+

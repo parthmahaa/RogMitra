@@ -15,6 +15,7 @@ import Home from './Pages/Home.jsx';
 import Appointment from './Pages/Appointment.jsx';
 import { AnimatePresence } from 'framer-motion';
 import useAuthStore from "./store/store";
+import ChatbotResult from './Pages/ChatbotResult.jsx';
 
 const AppRouter = () => {
   const user = useAuthStore((state) => state.user);
@@ -37,6 +38,7 @@ const AppRouter = () => {
         <Route path="/signup" element={user ? <Navigate to="/" /> : <Signup />} />
         <Route path="/" element={<Home />} />
         <Route path="/appointment" element={user ? <Appointment /> : <Navigate to="/login" />} />
+        <Route path="/chatbot-result" element={<ChatbotResult />} />
       </Route>
     )
   );

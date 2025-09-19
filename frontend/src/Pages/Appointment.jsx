@@ -1,19 +1,221 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FaHistory, FaDownload, FaArrowRight } from 'react-icons/fa';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaHistory } from 'react-icons/fa';
+import { Send, Stethoscope, Heart, Brain, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API from '../Services/api';
 import useAuthStore from '../store/store';
 
+// Utility to combine Tailwind classes
+const cn = (...classes) => classes.filter(Boolean).join(' ');
+
+// PlaceholdersAndVanishInput Component
+const PlaceholdersAndVanishInput = ({ placeholders, onChange, onSubmit, disabled }) => {
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
+  const [value, setValue] = useState('');
+  const [animating, setAnimating] = useState(false);
+  const canvasRef = useRef(null);
+  const inputRef = useRef(null);
+  const newDataRef = useRef([]);
+  const intervalRef = useRef(null);
+
+  // Animation for placeholder rotation
+  const startAnimation = useCallback(() => {
+    intervalRef.current = window.setInterval(() => {
+      setCurrentPlaceholder((prev) => (prev + 1) % placeholders.length);
+    }, 3000);
+  }, [placeholders.length]);
+
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState !== 'visible' && intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    } else if (document.visibilityState === 'visible') {
+      startAnimation();
+    }
+  }, [startAnimation]);
+
+  useEffect(() => {
+    startAnimation();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [startAnimation, handleVisibilityChange]);
+
+  // Canvas drawing logic
+  const draw = useCallback(() => {
+    if (!inputRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    canvas.width = 800;
+    canvas.height = 800;
+    ctx.clearRect(0, 0, 800, 800);
+    const computedStyles = getComputedStyle(inputRef.current);
+    const fontSize = parseFloat(computedStyles.getPropertyValue('font-size'));
+    ctx.font = `${fontSize * 2}px ${computedStyles.fontFamily}`;
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(value, 16, 40);
+
+    const imageData = ctx.getImageData(0, 0, 800, 800);
+    const pixelData = imageData.data;
+    const newData = [];
+
+    for (let t = 0; t < 800; t++) {
+      let i = 4 * t * 800;
+      for (let n = 0; n < 800; n++) {
+        let e = i + 4 * n;
+        if (pixelData[e] !== 0 && pixelData[e + 1] !== 0 && pixelData[e + 2] !== 0) {
+          newData.push({
+            x: n,
+            y: t,
+            color: [pixelData[e], pixelData[e + 1], pixelData[e + 2], pixelData[e + 3]],
+          });
+        }
+      }
+    }
+
+    newDataRef.current = newData.map(({ x, y, color }) => ({
+      x,
+      y,
+      r: 1,
+      color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`,
+    }));
+  }, [value]);
+
+  useEffect(() => {
+    draw();
+  }, [value, draw]);
+
+ 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !animating) {
+      vanishAndSubmit();
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    onSubmit(e);
+  };
+
+  return (
+    <form
+      className={cn(
+        'w-full relative max-w-2xl mx-auto bg-background border border-border h-14 rounded-full overflow-hidden shadow-lg transition duration-200',
+        value && 'bg-muted/50'
+      )}
+      onSubmit={handleSubmit}
+    >
+      <canvas
+        className={cn(
+          'absolute pointer-events-none text-base transform scale-50 top-[20%] left-2 sm:left-8 origin-top-left filter invert dark:invert-0 pr-20',
+          !animating ? 'opacity-0' : 'opacity-100'
+        )}
+        ref={canvasRef}
+      />
+      <input
+        onChange={(e) => {
+          if (!animating) {
+            setValue(e.target.value);
+            onChange(e);
+          }
+        }}
+        onKeyDown={handleKeyDown}
+        ref={inputRef}
+        value={value}
+        type='text'
+        disabled={disabled}
+        className={cn(
+          'w-full relative text-sm sm:text-base z-50 border-none bg-transparent text-foreground h-full rounded-full focus:outline-none focus:ring-0 pl-4 sm:pl-10 pr-20',
+          animating && 'text-transparent',
+          disabled && 'cursor-not-allowed opacity-50'
+        )}
+      />
+      <button
+        disabled={disabled || !value}
+        type='submit'
+        className={cn(
+          'absolute right-2 top-1/2 z-50 -translate-y-1/2 h-10 w-10 rounded-full transition duration-200 flex items-center justify-center',
+          disabled || !value ? 'bg-muted' : 'bg-primary hover:bg-primary/90'
+        )}
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0.5 }}
+          animate={{ scale: value && !disabled ? 1 : 0.8, opacity: value && !disabled ? 1 : 0.5 }}
+          transition={{ duration: 0.2 }}
+        >
+          {disabled ? (
+            <svg className="animate-spin h-4 w-4 text-primary-foreground" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          ) : (
+            <Send className='text-primary-foreground h-4 w-4' />
+          )}
+        </motion.div>
+      </button>
+      <div className='absolute inset-0 flex items-center rounded-full pointer-events-none'>
+        <AnimatePresence mode='wait'>
+          {!value && (
+            <motion.p
+              initial={{ y: 5, opacity: 0 }}
+              key={`current-placeholder-${currentPlaceholder}`}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -15, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'linear' }}
+              className='text-muted-foreground text-sm sm:text-base font-normal pl-4 sm:pl-12 text-left w-[calc(100%-2rem)] truncate'
+            >
+              {placeholders[currentPlaceholder]}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </form>
+  );
+};
+
+// Main Appointment Component
 const Appointment = () => {
   const [symptoms, setSymptoms] = useState('');
-  const [output, setOutput] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { token, user } = useAuthStore();
 
+  // Symptom placeholders
+  const symptomPlaceholders = [
+    'Describe your headache symptoms...',
+    'Tell me about your fever and chills...',
+    'What kind of pain are you experiencing?',
+    'Describe your digestive issues...',
+    'How long have you had these symptoms?',
+    'Any chest pain or breathing difficulties?',
+    'Describe your fatigue or weakness...',
+    'Any skin rashes or changes?',
+    'Joint pain or muscle aches?',
+    'Sleep problems or insomnia?',
+  ];
+
+  // Fetch history
   const fetchHistory = async () => {
     try {
       const response = await API.get('/appointment/history');
@@ -27,9 +229,7 @@ const Appointment = () => {
         err.response?.status
       );
       if (err.response?.status === 401) {
-        setError(
-          'Authentication required to fetch history. Please log in again.'
-        );
+        setError('Authentication required to fetch history. Please log in again.');
         useAuthStore.getState().logout();
         navigate('/login');
       } else {
@@ -44,18 +244,21 @@ const Appointment = () => {
     }
   }, [token]);
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     if (!symptoms.trim()) {
       setError('Please enter your symptoms.');
+      setLoading(false);
       return;
     }
     try {
-      const response = await API.post('/appointment/analyze', { shivangNoLodo : symptoms });
-      setOutput(response.data);
+      const response = await API.post('/appointment/analyze', { shivangNoLodo: symptoms });
       if (token) {
-        fetchHistory();
+        await fetchHistory();
       }
+      navigate('/chatbot-result', { state: { output: response.data, symptoms } });
     } catch (err) {
       console.error(
         'Analyze error:',
@@ -77,205 +280,214 @@ const Appointment = () => {
         setError('Guest users are limited to one request. Please log in.');
         navigate('/login');
       } else if (err.response?.status === 400) {
-        setError(
-          err.response?.data?.message ||
-            'Invalid symptoms provided. Please try again.'
-        );
+        setError(err.response?.data?.message || 'Invalid symptoms provided. Please try again.');
       } else {
-        setError(
-          err.response?.data?.message ||
-            'Error analyzing symptoms. Please try again.'
-        );
+        setError(err.response?.data?.message || 'Error analyzing symptoms. Please try again.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!output) return;
-    const blob = new Blob([output.report], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'health_report.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // Medical icons for header
+  const medicalIcons = [
+    { icon: Stethoscope, color: 'text-[#0891b2]', delay: 0 },
+    { icon: Heart, color: 'text-red-500', delay: 0.2 },
+    { icon: Brain, color: 'text-purple-500', delay: 0.4 },
+    { icon: Activity, color: 'text-green-500', delay: 0.6 },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] to-[#ecfeff] py-12 px-4 relative">
-      <div className="fixed top-20 right-4 z-50">
+    <div className='min-h-screen bg-gradient-to-br from-[var(--background)] to-[var(--background)] py-12 px-4 relative'>
+      {/* History Button + Dropdown */}
+      <div className='fixed top-20 right-4 z-50'>
         <button
           onClick={() => {
             if (token) {
               fetchHistory();
-              setShowHistoryDropdown(!showHistoryDropdown);
+              setShowHistoryDropdown((s) => !s);
             } else {
               navigate('/login');
             }
           }}
           disabled={!token}
-          className={`flex items-center py-2 px-4 rounded-lg font-medium transition-all hover:shadow-lg ${
+          className={cn(
+            'flex items-center py-2 px-4 rounded-xl font-medium transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2',
             token
-              ? 'bg-[#0891b2] hover:bg-[#0e7490] text-white'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+              ? 'bg-primary hover:bg-primary/90 text-primary-foreground focus:ring-primary'
+              : 'bg-muted text-muted-foreground cursor-not-allowed focus:ring-transparent'
+          )}
+          aria-label='View history'
         >
-          <FaHistory />
+          <FaHistory className='text-sm' />
+          <span className='hidden sm:inline ml-2'>History</span>
         </button>
+
         {showHistoryDropdown && token && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full right-0 mt-2 w-110 bg-white rounded-lg shadow-lg p-4 z-50 overflow-y-auto max-h-80"
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 8, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            className='absolute top-full right-0 mt-2 w-[28rem] max-w-[90vw] bg-card/90 backdrop-blur rounded-2xl shadow-2xl border border-border p-4 z-50 overflow-y-auto max-h-96'
           >
-            <h2 className="text-xl font-bold text-[#155e75] mb-2">History</h2>
-            <div className="space-y-4">
+            <div className='flex items-center justify-between mb-2'>
+              <h2 className='text-lg font-bold text-primary'>History</h2>
+              <span className='text-xs text-muted-foreground'>
+                {history?.length || 0} item{history?.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className='divide-y divide-border'>
               {history.length > 0 ? (
                 history.map((item, index) => (
-                    <motion.div
+                  <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-50 p-3 rounded-lg border border-gray-200"
+                    className='py-3'
                   >
-                    <h3 className="font-semibold text-[#0891b2]">
-                      {new Date(item.date).toLocaleDateString()}
-                    </h3>
-                    <p className="text-gray-700 text-xs mt-1">
-                      <strong>Symptoms:</strong> {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
-                    </p>
-                    <div className="text-gray-700 text-xs mt-1">
-                      <strong>Diagnosis:</strong>
-                      <ul className="list-disc ml-5">
-                        {Array.isArray(item.diagnosis)
-                          ? item.diagnosis.map((diag, i) => (
+                    <div className='bg-muted hover:bg-muted/50 transition-colors p-3 rounded-xl border border-border'>
+                      <div className='flex items-center justify-between'>
+                        <h3 className='font-semibold text-primary'>
+                          {new Date(item.date).toLocaleDateString()}
+                        </h3>
+                      </div>
+                      <p className='text-muted-foreground text-xs mt-2 leading-relaxed'>
+                        <span className='font-semibold text-[#155e75]'>Symptoms:</span>{' '}
+                        {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
+                      </p>
+                      <div className='text-muted-foreground text-xs mt-2'>
+                        <span className='font-semibold text-[#155e75]'>Diagnosis:</span>
+                        <ul className='list-disc ml-5 mt-1 space-y-1'>
+                          {Array.isArray(item.diagnosis) ? (
+                            item.diagnosis.map((diag, i) => (
                               <li key={i}>
                                 <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
                               </li>
                             ))
-                          : <li>{item.diagnosis}</li>
-                        }
-                      </ul>
+                          ) : (
+                            <li>{item.diagnosis}</li>
+                          )}
+                        </ul>
+                      </div>
+                      <div className='text-muted-foreground text-xs mt-2'>
+                        <span className='font-semibold text-[#155e75]'>Recommendations:</span>
+                        <ul className='list-disc ml-5 mt-1 space-y-1'>
+                          {Array.isArray(item.recommendations) ? (
+                            item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
+                          ) : (
+                            <li>{item.recommendations}</li>
+                          )}
+                        </ul>
+                      </div>
                     </div>
-                    <div className="text-gray-700 text-xs mt-1">
-                      <strong>Recommendations:</strong>
-                      <ul className="list-disc ml-5">
-                        {Array.isArray(item.recommendations)
-                          ? item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
-                          : <li>{item.recommendations}</li>
-                        }
-                      </ul>
-                    </div>
-                        </motion.div>
+                  </motion.div>
                 ))
               ) : (
-                <p className="text-gray-600 text-center text-sm">
-                  No history available yet.
-                </p>
+                <p className='text-muted-foreground text-center text-sm py-4'>No history available yet.</p>
               )}
             </div>
           </motion.div>
         )}
       </div>
 
-      <div className="max-w-4xl mx-25 relative z-10">
+      {/* Main Content */}
+      <div className='max-w-4xl mx-auto relative z-10'>
+        {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          transition={{ duration: 0.6 }}
+          className='text-center mb-10'
         >
-          <h1 className="text-4xl font-bold text-[#155e75] mb-2">
+          <div className='flex justify-center items-center gap-4 mb-6'>
+            {medicalIcons.map(({ icon: Icon, color, delay }, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  duration: 0.5,
+                  delay,
+                  type: 'spring',
+                  stiffness: 200,
+                }}
+                whileHover={{
+                  scale: 1.2,
+                  rotate: 10,
+                  transition: { duration: 0.2 },
+                }}
+              >
+                <Icon className={cn('h-8 w-8', color)} />
+              </motion.div>
+            ))}
+          </div>
+          <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground'>
             Symptom Checker
           </h1>
-          <p className="text-[#0891b2] text-lg">
-            Enter your symptoms for AI-driven analysis
+          <p className='text-primary text-lg sm:text-xl max-w-2xl mx-auto mt-2'>
+            Describe your symptoms in detail to get personalized health insights
           </p>
         </motion.div>
 
+        {/* Error Alert */}
         {error && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-red-500 text-center mb-8"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className='mb-6'
           >
-            {error}
+            <div className='rounded-xl border border-destructive bg-destructive/10 text-destructive px-4 py-3 text-sm shadow-sm'>
+              {error}
+            </div>
           </motion.div>
         )}
 
+        {/* Form Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className='bg-card rounded-2xl shadow-xl ring-1 ring-border p-6 sm:p-8 mb-8'
+        >
+          <PlaceholdersAndVanishInput
+            placeholders={symptomPlaceholders}
+            onChange={(e) => setSymptoms(e.target.value)}
+            onSubmit={handleSubmit}
+            disabled={loading}
+          />
+        </motion.div>
+
+        {/* Additional Info */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-white rounded-2xl shadow-xl p-8 mb-8"
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className='text-center space-y-4'
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-[#0891b2] font-medium mb-2">
-                Describe your symptoms
-              </label>
-              <textarea
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-                placeholder="e.g., headache, fever, fatigue..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0891b2] text-base bg-white text-gray-700 placeholder-[#0891b2]/50 transition-all"
-                rows={4}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full flex items-center justify-center bg-[#0891b2] hover:bg-[#0e7490] text-white py-3 px-4 rounded-lg font-medium transition-all hover:shadow-lg"
-            >
-              Analyze Symptoms <FaArrowRight className="ml-2" />
-            </button>
-          </form>
+          <p className='text-sm text-muted-foreground'>
+            💡 Be as specific as possible about your symptoms, duration, and severity
+          </p>
+          <div className='flex flex-wrap justify-center gap-4 text-xs text-muted-foreground'>
+            <span className='bg-muted px-3 py-1 rounded-full'>🔒 Confidential</span>
+            <span className='bg-muted px-3 py-1 rounded-full'>⚡ Instant Analysis</span>
+            <span className='bg-muted px-3 py-1 rounded-full'>🩺 AI-Powered</span>
+          </div>
         </motion.div>
 
-        {output && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-xl p-8 mb-8"
-          >
-            <h2 className="text-2xl font-bold text-[#155e75] mb-4">
-              Analysis Results
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[#0891b2]">
-                  Possible Diagnosis
-                </h3>
-                <ul className="list-disc ml-5">
-                  {Array.isArray(output.diagnosis)
-                    ? output.diagnosis.map((diag, i) => (
-                        <li key={i}>
-                          <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
-                        </li>
-                      ))
-                    : <li>{output.diagnosis}</li>
-                  }
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[#0891b2]">
-                  Recommendations
-                </h3>
-                <ul className="list-disc ml-5">
-                  {Array.isArray(output.recommendations)
-                    ? output.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
-                    : <li>{output.recommendations}</li>
-                  }
-                </ul>
-              </div>
-            </div>
-            <button
-              onClick={handleDownload}
-              className="mt-6 flex items-center justify-center bg-[#0891b2] hover:bg-[#0e7490] text-white py-3 px-4 rounded-lg font-medium transition-all hover:shadow-lg w-full md:w-auto"
-            >
-              Download Report <FaDownload className="ml-2" />
-            </button>
-          </motion.div>
-        )}
+        {/* Disclaimer */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.9 }}
+          className='max-w-xl mx-auto'
+        >
+          <div className='bg-muted/50 border border-border rounded-lg p-4'>
+            <p className='text-xs text-muted-foreground'>
+              <strong>Medical Disclaimer:</strong> This tool is for informational purposes only and
+              should not replace professional medical advice. Always consult with a healthcare provider
+              for proper diagnosis and treatment.
+            </p>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

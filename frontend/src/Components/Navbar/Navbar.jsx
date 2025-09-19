@@ -1,22 +1,32 @@
+// Update src/Components/Navbar/Navbar.jsx
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import '../../Styles/Navbar.css';
-import { FaStethoscope } from 'react-icons/fa';
+import { FaStethoscope, FaUser, FaSignOutAlt } from 'react-icons/fa';
+import useAuthStore from '../../store/store'; // Adjust path if needed
 
 const Navbar = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    if (mobileMenuOpen) toggleMobileMenu();
+  };
+
   return (
     <nav className="bg-white/90 backdrop-blur-lg shadow-md sticky top-0 z-50 border-b border-gray-200/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}
-          <div className="flex-shrink-0 flex items-center">
+          <div className="flex-shrink-0 flex items-center ml-26">
             <Link 
               to="/" 
               className="group flex items-center space-x-2 focus:outline-none animate-logo"
@@ -43,12 +53,22 @@ const Navbar = ({ children }) => {
               <span className="text-sm font-medium">Home</span>
             </Link>
             {children}
+            {user && (
+              <div className="relative group">
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-full text-gray-700 hover:text-[#0891b2] hover:bg-gray-100 focus:outline-none transition-all duration-300 flex items-center"
+                >
+                  <FaSignOutAlt className="h-6 w-6" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-4">
             <button
-              onClick={() => toggleMobileMenu()}
+              onClick={toggleMobileMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-[#0891b2] hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0891b2] transition-all duration-300 transform hover:scale-110"
               aria-expanded={mobileMenuOpen}
             >
@@ -82,28 +102,39 @@ const Navbar = ({ children }) => {
             >
               Home
             </Link>
-            <Link
-              to="/signup"
-              className={`block px-3 py-3 rounded-md text-base font-medium transition-all duration-300 ${
-                location.pathname === '/signup' 
-                  ? 'text-[#0891b2] font-semibold bg-[#ecfeff]' 
-                  : 'text-gray-700 hover:text-[#0891b2] hover:bg-[#f0fdfa]'
-              }`}
-              onClick={toggleMobileMenu}
-            >
-              Sign Up
-            </Link>
-            <Link
-              to="/login"
-              className={`block px-3 py-3 rounded-md text-base font-medium transition-all duration-300 ${
-                location.pathname === '/login' 
-                  ? 'text-[#0891b2] font-semibold bg-[#ecfeff]' 
-                  : 'text-gray-700 hover:text-[#0891b2] hover:bg-[#f0fdfa]'
-              }`}
-              onClick={toggleMobileMenu}
-            >
-              Login
-            </Link>
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="block px-3 py-3 rounded-md text-base font-medium transition-all duration-300 text-gray-700 hover:text-[#0891b2] hover:bg-[#f0fdfa]"
+              >
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link
+                  to="/signup"
+                  className={`block px-3 py-3 rounded-md text-base font-medium transition-all duration-300 ${
+                    location.pathname === '/signup' 
+                      ? 'text-[#0891b2] font-semibold bg-[#ecfeff]' 
+                      : 'text-gray-700 hover:text-[#0891b2] hover:bg-[#f0fdfa]'
+                  }`}
+                  onClick={toggleMobileMenu}
+                >
+                  Sign Up
+                </Link>
+                <Link
+                  to="/login"
+                  className={`block px-3 py-3 rounded-md text-base font-medium transition-all duration-300 ${
+                    location.pathname === '/login' 
+                      ? 'text-[#0891b2] font-semibold bg-[#ecfeff]' 
+                      : 'text-gray-700 hover:text-[#0891b2] hover:bg-[#f0fdfa]'
+                  }`}
+                  onClick={toggleMobileMenu}
+                >
+                  Login
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
