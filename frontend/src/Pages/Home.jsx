@@ -2,14 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import '../Styles/Home.css';
 import useAuthStore from '../store/store';
-
+import Navbar from '../Components/Navbar/Navbar';
 const Home = () => {
   const { user } = useAuthStore();
 
   return (
     <div className="bg-gray-50 overflow-hidden">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-[#ecfeff] to-[#a5f3fc]" style={{ minHeight: 'calc(91vh)' }}>
+      <div className="relative bg-gradient-to-br from-[#ecfeff] to-[#a5f3fc]" style={{ minHeight: 'calc(100vh)' }}>
+        <Navbar />
         {/* Animated Background Waves */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           <div className="wave-bg-1 animate-wave"></div>

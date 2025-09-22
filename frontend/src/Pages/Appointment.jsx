@@ -5,6 +5,7 @@ import { Send, Stethoscope, Heart, Brain, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API from '../Services/api';
 import useAuthStore from '../store/store';
+import Navbar from '../Components/Navbar/Navbar';
 
 // Utility to combine Tailwind classes
 const cn = (...classes) => classes.filter(Boolean).join(' ');
@@ -48,7 +49,7 @@ const PlaceholdersAndVanishInput = ({ placeholders, onChange, onSubmit, disabled
   const draw = useCallback(() => {
     if (!inputRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     canvas.width = 800;
@@ -90,16 +91,14 @@ const PlaceholdersAndVanishInput = ({ placeholders, onChange, onSubmit, disabled
     draw();
   }, [value, draw]);
 
- 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !animating) {
-      vanishAndSubmit();
+      onSubmit(e);
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     onSubmit(e);
   };
 
@@ -201,6 +200,9 @@ const Appointment = () => {
   const navigate = useNavigate();
   const { token, user } = useAuthStore();
 
+  // Ref for the history button and dropdown
+  const historyRef = useRef(null);
+
   // Symptom placeholders
   const symptomPlaceholders = [
     'Describe your headache symptoms...',
@@ -243,6 +245,20 @@ const Appointment = () => {
       fetchHistory();
     }
   }, [token]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (historyRef.current && !historyRef.current.contains(event.target)) {
+        setShowHistoryDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -298,9 +314,22 @@ const Appointment = () => {
   ];
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-[var(--background)] to-[var(--background)] py-12 px-4 relative'>
+    <div className="min-h-screen w-full bg-white relative overflow-hidden">
+      {/* Blue Corner Glow Background */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(circle 600px at 0% 200px, #bfdbfe, transparent),
+            radial-gradient(circle 600px at 100% 200px, #bfdbfe, transparent)
+          `,
+        }}
+      />
+      {/* Navbar always on top */}
+      <Navbar />
+
       {/* History Button + Dropdown */}
-      <div className='fixed top-20 right-4 z-50'>
+      <div className="absolute top-26 right-6 z-50" ref={historyRef}>
         <button
           onClick={() => {
             if (token) {
@@ -312,78 +341,75 @@ const Appointment = () => {
           }}
           disabled={!token}
           className={cn(
-            'flex items-center py-2 px-4 rounded-xl font-medium transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2',
-            token
-              ? 'bg-primary hover:bg-primary/90 text-primary-foreground focus:ring-primary'
-              : 'bg-muted text-muted-foreground cursor-not-allowed focus:ring-transparent'
+            'flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-[#0891b2] to-[#0e7490] text-white shadow-lg hover:shadow-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0891b2]',
+            !token && 'opacity-50 cursor-not-allowed'
           )}
-          aria-label='View history'
+          aria-label="View history"
         >
-          <FaHistory className='text-sm' />
-          <span className='hidden sm:inline ml-2'>History</span>
+          <FaHistory className="text-xl" />
         </button>
 
         {showHistoryDropdown && token && (
           <motion.div
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 8, scale: 1 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            className='absolute top-full right-0 mt-2 w-[28rem] max-w-[90vw] bg-card/90 backdrop-blur rounded-2xl shadow-2xl border border-border p-4 z-50 overflow-y-auto max-h-96'
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="absolute top-full right-0 mt-2 w-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 z-50 overflow-y-auto max-h-96"
           >
-            <div className='flex items-center justify-between mb-2'>
-              <h2 className='text-lg font-bold text-primary'>History</h2>
-              <span className='text-xs text-muted-foreground'>
+            <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-2">
+              <h2 className="text-lg font-semibold text-[#0891b2]">History</h2>
+              <span className="text-sm text-gray-500">
                 {history?.length || 0} item{history?.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className='divide-y divide-border'>
+            <div className="space-y-3">
               {history.length > 0 ? (
                 history.map((item, index) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className='py-3'
+                    transition={{ delay: index * 0.1 }}
+                    className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                   >
-                    <div className='bg-muted hover:bg-muted/50 transition-colors p-3 rounded-xl border border-border'>
-                      <div className='flex items-center justify-between'>
-                        <h3 className='font-semibold text-primary'>
-                          {new Date(item.date).toLocaleDateString()}
-                        </h3>
-                      </div>
-                      <p className='text-muted-foreground text-xs mt-2 leading-relaxed'>
-                        <span className='font-semibold text-[#155e75]'>Symptoms:</span>{' '}
-                        {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
-                      </p>
-                      <div className='text-muted-foreground text-xs mt-2'>
-                        <span className='font-semibold text-[#155e75]'>Diagnosis:</span>
-                        <ul className='list-disc ml-5 mt-1 space-y-1'>
-                          {Array.isArray(item.diagnosis) ? (
-                            item.diagnosis.map((diag, i) => (
-                              <li key={i}>
-                                <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
-                              </li>
-                            ))
-                          ) : (
-                            <li>{item.diagnosis}</li>
-                          )}
-                        </ul>
-                      </div>
-                      <div className='text-muted-foreground text-xs mt-2'>
-                        <span className='font-semibold text-[#155e75]'>Recommendations:</span>
-                        <ul className='list-disc ml-5 mt-1 space-y-1'>
-                          {Array.isArray(item.recommendations) ? (
-                            item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
-                          ) : (
-                            <li>{item.recommendations}</li>
-                          )}
-                        </ul>
-                      </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700">
+                        {new Date(item.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      <span className="font-medium text-[#155e75]">Symptoms:</span>{' '}
+                      {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
+                    </p>
+                    <div className="text-xs text-gray-600 mt-1">
+                      <span className="font-medium text-[#155e75]">Diagnosis:</span>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        {Array.isArray(item.diagnosis) ? (
+                          item.diagnosis.map((diag, i) => (
+                            <li key={i} className="text-gray-600">
+                              <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
+                            </li>
+                          ))
+                        ) : (
+                          <li>{item.diagnosis}</li>
+                        )}
+                      </ul>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      <span className="font-medium text-[#155e75]">Recommendations:</span>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        {Array.isArray(item.recommendations) ? (
+                          item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
+                        ) : (
+                          <li>{item.recommendations}</li>
+                        )}
+                      </ul>
                     </div>
                   </motion.div>
                 ))
               ) : (
-                <p className='text-muted-foreground text-center text-sm py-4'>No history available yet.</p>
+                <p className="text-center text-sm text-gray-500 py-2">No history available yet.</p>
               )}
             </div>
           </motion.div>
@@ -391,15 +417,15 @@ const Appointment = () => {
       </div>
 
       {/* Main Content */}
-      <div className='max-w-4xl mx-auto relative z-10'>
+      <div className="max-w-4xl mx-auto relative z-10 mt-20">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className='text-center mb-10'
+          className="text-center mb-10"
         >
-          <div className='flex justify-center items-center gap-4 mb-6'>
+          <div className="flex justify-center items-center gap-4 mb-6">
             {medicalIcons.map(({ icon: Icon, color, delay }, index) => (
               <motion.div
                 key={index}
@@ -421,10 +447,10 @@ const Appointment = () => {
               </motion.div>
             ))}
           </div>
-          <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground'>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-5">
             Symptom Checker
           </h1>
-          <p className='text-primary text-lg sm:text-xl max-w-2xl mx-auto mt-2'>
+          <p className="text-primary text-lg sm:text-xl max-w-2xl mx-auto mt-2">
             Describe your symptoms in detail to get personalized health insights
           </p>
         </motion.div>
@@ -434,9 +460,9 @@ const Appointment = () => {
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className='mb-6'
+            className="mb-6"
           >
-            <div className='rounded-xl border border-destructive bg-destructive/10 text-destructive px-4 py-3 text-sm shadow-sm'>
+            <div className="rounded-xl border border-destructive bg-destructive/10 text-destructive px-4 py-3 text-sm shadow-sm">
               {error}
             </div>
           </motion.div>
@@ -446,7 +472,7 @@ const Appointment = () => {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className='bg-card rounded-2xl shadow-xl ring-1 ring-border p-6 sm:p-8 mb-8'
+          className="bg-card  p-6 sm:p-8 mb-8"
         >
           <PlaceholdersAndVanishInput
             placeholders={symptomPlaceholders}
@@ -461,15 +487,15 @@ const Appointment = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className='text-center space-y-4'
+          className="text-center space-y-4"
         >
-          <p className='text-sm text-muted-foreground'>
+          <p className="text-sm text-muted-foreground mb-5">
             💡 Be as specific as possible about your symptoms, duration, and severity
           </p>
-          <div className='flex flex-wrap justify-center gap-4 text-xs text-muted-foreground'>
-            <span className='bg-muted px-3 py-1 rounded-full'>🔒 Confidential</span>
-            <span className='bg-muted px-3 py-1 rounded-full'>⚡ Instant Analysis</span>
-            <span className='bg-muted px-3 py-1 rounded-full'>🩺 AI-Powered</span>
+          <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground mb-10">
+            <span className="bg-muted px-3 py-1 rounded-full">🔒 Confidential</span>
+            <span className="bg-muted px-3 py-1 rounded-full">⚡ Instant Analysis</span>
+            <span className="bg-muted px-3 py-1 rounded-full">🩺 AI-Powered</span>
           </div>
         </motion.div>
 
@@ -478,10 +504,10 @@ const Appointment = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.9 }}
-          className='max-w-xl mx-auto'
+          className="max-w-xl mx-auto"
         >
-          <div className='bg-muted/50 border border-border rounded-lg p-4'>
-            <p className='text-xs text-muted-foreground'>
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <p className="text-xs text-muted-foreground">
               <strong>Medical Disclaimer:</strong> This tool is for informational purposes only and
               should not replace professional medical advice. Always consult with a healthcare provider
               for proper diagnosis and treatment.
