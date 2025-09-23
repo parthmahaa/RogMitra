@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import '../Styles/Home.css';
 import useAuthStore from '../store/store';
 import Navbar from '../Components/Navbar/Navbar';
+import doctor from '../Assets/doctor.png';
 const Home = () => {
   const { user } = useAuthStore();
 
@@ -57,18 +58,7 @@ const Home = () => {
           </div>
           {/* Hero Illustration */}
           <div className="flex-1 flex justify-center mb-10 md:mb-0 relative animate-slide-in">
-            <div className="relative w-full max-w-md">
-              <div className="relative z-10 bg-white p-6 rounded-2xl shadow-2xl border border-gray-100 transform hover:scale-105 transition-transform duration-500">
-                <div className="bg-gradient-to-br from-[#a5f3fc] to-[#0ea5e9] rounded-xl h-72 flex items-center justify-center p-4">
-                  <svg className="w-40 h-40 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                  </svg>
-                </div>
-              </div>
-              {/* Decorative Elements */}
-              <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-[#a5f3fc] opacity-20 -z-10"></div>
-              <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[#0ea5e9] opacity-20 -z-10"></div>
-            </div>
+            <img src={doctor} alt="Doctor" className="w-full max-w-md" />
           </div>
         </div>
       </div>

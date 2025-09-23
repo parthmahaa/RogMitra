@@ -350,70 +350,130 @@ const Appointment = () => {
         </button>
 
         {showHistoryDropdown && token && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute top-full right-0 mt-2 w-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 z-50 overflow-y-auto max-h-96"
-          >
-            <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-2">
-              <h2 className="text-lg font-semibold text-[#0891b2]">History</h2>
-              <span className="text-sm text-gray-500">
-                {history?.length || 0} item{history?.length === 1 ? '' : 's'}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {history.length > 0 ? (
-                history.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                  >
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-700">
-                        {new Date(item.date).toLocaleDateString()}
+  <motion.div
+    initial={{ opacity: 0, y: -10, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: -10, scale: 0.98 }}
+    transition={{ duration: 0.2, ease: 'easeOut' }}
+    className="absolute top-full right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-100 p-0 z-50 overflow-hidden"
+  >
+    {/* Header */}
+    <div className="bg-gradient-to-r from-[#0891b2] to-[#0e7490] p-4 text-white">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <FaHistory className="text-sm" />
+           History
+        </h2>
+        <span className="text-sm bg-white/20 px-2 py-1 rounded-full">
+          {history?.length || 0} {history?.length === 1 ? 'entry' : 'entries'}
+        </span>
+      </div>
+    </div>
+    
+    {/* Content */}
+    <div className="max-h-80 overflow-y-auto p-2">
+      {history.length > 0 ? (
+        <div className="space-y-3">
+          {history.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors duration-200 border border-gray-100"
+            >
+              {/* Date */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                <span className="font-medium text-gray-700 text-sm">
+                  {new Date(item.date).toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {new Date(item.date).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </span>
+              </div>
+              
+              {/* Symptoms */}
+              <div className="mb-3">
+                <p className="text-xs font-medium text-[#155e75] mb-1">Symptoms:</p>
+                <p className="text-sm text-gray-700 line-clamp-2">
+                  {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
+                </p>
+              </div>
+              
+              {/* Diagnosis Preview */}
+              <div className="mb-3">
+                <p className="text-xs font-medium text-[#155e75] mb-1">Assessment:</p>
+                {Array.isArray(item.diagnosis) && item.diagnosis.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {item.diagnosis.slice(0, 2).map((diag, i) => (
+                      <span 
+                        key={i} 
+                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full"
+                      >
+                        {diag.condition}
                       </span>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">
-                      <span className="font-medium text-[#155e75]">Symptoms:</span>{' '}
-                      {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
-                    </p>
-                    <div className="text-xs text-gray-600 mt-1">
-                      <span className="font-medium text-[#155e75]">Diagnosis:</span>
-                      <ul className="list-disc list-inside mt-1 space-y-1">
-                        {Array.isArray(item.diagnosis) ? (
-                          item.diagnosis.map((diag, i) => (
-                            <li key={i} className="text-gray-600">
-                              <strong>{diag.condition}</strong> ({diag.likelihood}): {diag.reasoning}
-                            </li>
-                          ))
-                        ) : (
-                          <li>{item.diagnosis}</li>
-                        )}
-                      </ul>
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      <span className="font-medium text-[#155e75]">Recommendations:</span>
-                      <ul className="list-disc list-inside mt-1 space-y-1">
-                        {Array.isArray(item.recommendations) ? (
-                          item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)
-                        ) : (
-                          <li>{item.recommendations}</li>
-                        )}
-                      </ul>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <p className="text-center text-sm text-gray-500 py-2">No history available yet.</p>
-              )}
-            </div>
-          </motion.div>
-        )}
+                    ))}
+                    {item.diagnosis.length > 2 && (
+                      <span className="text-xs text-gray-500">
+                        +{item.diagnosis.length - 2} more
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">No diagnosis recorded</p>
+                )}
+              </div>
+              
+              {/* View Details Button */}
+              <button 
+                className="text-xs text-[#0891b2] hover:text-[#0e7490] font-medium flex items-center gap-1 mt-2"
+                onClick={() => {
+                  navigate('/chatbot-result', { 
+                    state: { output: item, symptoms: item.symptoms } 
+                  });
+                  setShowHistoryDropdown(false);
+                }}
+              >
+                View full details
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+            <FaHistory className="text-gray-400 text-xl" />
+          </div>
+          <p className="text-sm text-gray-500">No consultation history yet</p>
+          <p className="text-xs text-gray-400 mt-1">Your symptom analyses will appear here</p>
+        </div>
+      )}
+    </div>
+    
+    {/* Footer */}
+    {history.length > 0 && (
+      <div className="border-t border-gray-200 p-3 bg-gray-50">
+        <button 
+          className="w-full text-center text-xs text-[#0891b2] hover:text-[#0e7490] font-medium"
+          onClick={() => setShowHistoryDropdown(false)}
+        >
+          Close history
+        </button>
+      </div>
+    )}
+  </motion.div>
+)}
       </div>
 
       {/* Main Content */}

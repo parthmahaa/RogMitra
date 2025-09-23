@@ -25,6 +25,51 @@ function formatTime(date) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
+/* ✅ ChatMessage moved outside and memoized */
+const ChatMessage = React.memo(({ text, isBot, timestamp }) => (
+  <motion.div
+    layout
+    className={`flex ${isBot ? 'justify-start' : 'justify-end'} mb-3`}
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+    <div
+      className={`flex ${isBot ? 'flex-row' : 'flex-row-reverse'} max-w-[85%] gap-2`}
+    >
+      <div
+        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+          isBot
+            ? 'bg-blue-100 text-blue-600 shadow-sm'
+            : 'bg-teal-100 text-teal-600 shadow-sm'
+        }`}
+      >
+        {isBot ? <BsRobot size={14} /> : <FaUser size={12} />}
+      </div>
+      <div className="flex flex-col">
+        <div
+          className={`px-3 py-2 rounded-xl shadow-sm text-sm whitespace-pre-line ${
+            isBot
+              ? 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
+              : 'bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-br-sm'
+          }`}
+        >
+          {text.split('**').map((part, i) =>
+            i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+          )}
+        </div>
+        <span
+          className={`text-xs text-gray-500 mt-1 ${
+            isBot ? 'text-left' : 'text-right'
+          }`}
+        >
+          {formatTime(timestamp)}
+        </span>
+      </div>
+    </div>
+  </motion.div>
+));
+
 const ChatbotResult = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,53 +192,6 @@ const ChatbotResult = () => {
       setMessages(initialMsgs);
     }
   }, [output, symptoms, selectedHistory]);
-
-  // Chat message component
-  const ChatMessage = React.memo(({ text, isBot, timestamp }) => (
-    <motion.div
-      layout
-      className={`flex ${isBot ? 'justify-start' : 'justify-end'} mb-3`}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div
-        className={`flex ${
-          isBot ? 'flex-row' : 'flex-row-reverse'
-        } max-w-[85%] gap-2`}
-      >
-        <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isBot
-              ? 'bg-blue-100 text-blue-600 shadow-sm'
-              : 'bg-teal-100 text-teal-600 shadow-sm'
-          }`}
-        >
-          {isBot ? <BsRobot size={14} /> : <FaUser size={12} />}
-        </div>
-        <div className="flex flex-col">
-          <div
-            className={`px-3 py-2 rounded-xl shadow-sm text-sm whitespace-pre-line ${
-              isBot
-                ? 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
-                : 'bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-br-sm'
-            }`}
-          >
-            {text.split('**').map((part, i) =>
-              i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-            )}
-          </div>
-          <span
-            className={`text-xs text-gray-500 mt-1 ${
-              isBot ? 'text-left' : 'text-right'
-            }`}
-          >
-            {formatTime(timestamp)}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  ));
 
   // Handle send
   const handleSend = async (e) => {
@@ -406,7 +404,7 @@ const ChatbotResult = () => {
         </div>
 
         {/* Custom CSS */}
-        <style jsx>{`
+        <style>{`
           .custom-scrollbar::-webkit-scrollbar {
             width: 5px;
           }
