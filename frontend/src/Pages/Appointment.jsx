@@ -270,11 +270,17 @@ const Appointment = () => {
       return;
     }
     try {
-      const response = await API.post('/appointment/analyze', { shivangNoLodo: symptoms });
+      const response = await API.post('/appointment/analyze', { userInput: symptoms });
+      console.log(response.data);
       if (token) {
         await fetchHistory();
       }
-      navigate('/chatbot-result', { state: { output: response.data, symptoms } });
+      // Create a session object with the conversation
+      const session = {
+        ...response.data, // Pass the full session data from the backend
+        _id: response.data._id // Ensure _id is explicitly set for consistency
+      };
+      navigate('/chatbot-result', { state: { session } });
     } catch (err) {
       console.error(
         'Analyze error:',
@@ -349,7 +355,8 @@ const Appointment = () => {
           <FaHistory className="text-xl" />
         </button>
 
-        {showHistoryDropdown && token && (
+
+{showHistoryDropdown && token && (
   <motion.div
     initial={{ opacity: 0, y: -10, scale: 0.98 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -362,7 +369,7 @@ const Appointment = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <FaHistory className="text-sm" />
-           History
+          History
         </h2>
         <span className="text-sm bg-white/20 px-2 py-1 rounded-full">
           {history?.length || 0} {history?.length === 1 ? 'entry' : 'entries'}
@@ -376,14 +383,35 @@ const Appointment = () => {
         <div className="space-y-3">
           {history.map((item, index) => (
             <motion.div
-              key={index}
+              key={item.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors duration-200 border border-gray-100"
+              className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors duration-200 border border-gray-100 cursor-pointer"
+              onClick={async () => {
+                try {
+                  // Fetch the session details
+                  const response = await API.get(`/appointment/session/${item.id}`);
+                  const sessionData = response.data;
+                  
+                  // Navigate to chatbot with the session data
+                  navigate('/chatbot-result', { 
+                    state: { 
+                      session: {
+                        ...sessionData,
+                        _id: sessionData._id
+                      }
+                    } 
+                  });
+                  setShowHistoryDropdown(false);
+                } catch (error) {
+                  console.error('Error loading session:', error);
+                  setError('Failed to load session. Please try again.');
+                }
+              }}
             >
               {/* Date */}
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-gray-700 text-sm">
                   {new Date(item.date).toLocaleDateString('en-US', { 
                     weekday: 'short', 
@@ -400,53 +428,20 @@ const Appointment = () => {
                 </span>
               </div>
               
-              {/* Symptoms */}
-              <div className="mb-3">
-                <p className="text-xs font-medium text-[#155e75] mb-1">Symptoms:</p>
-                <p className="text-sm text-gray-700 line-clamp-2">
-                  {Array.isArray(item.symptoms) ? item.symptoms.join(', ') : item.symptoms}
+              {/* Title */}
+              <div className="mb-2">
+                <p className="text-sm font-medium text-gray-800">
+                  {item.title}
                 </p>
               </div>
               
-              {/* Diagnosis Preview */}
-              <div className="mb-3">
-                <p className="text-xs font-medium text-[#155e75] mb-1">Assessment:</p>
-                {Array.isArray(item.diagnosis) && item.diagnosis.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {item.diagnosis.slice(0, 2).map((diag, i) => (
-                      <span 
-                        key={i} 
-                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full"
-                      >
-                        {diag.condition}
-                      </span>
-                    ))}
-                    {item.diagnosis.length > 2 && (
-                      <span className="text-xs text-gray-500">
-                        +{item.diagnosis.length - 2} more
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">No diagnosis recorded</p>
-                )}
-              </div>
-              
-              {/* View Details Button */}
-              <button 
-                className="text-xs text-[#0891b2] hover:text-[#0e7490] font-medium flex items-center gap-1 mt-2"
-                onClick={() => {
-                  navigate('/chatbot-result', { 
-                    state: { output: item, symptoms: item.symptoms } 
-                  });
-                  setShowHistoryDropdown(false);
-                }}
-              >
-                View full details
+              {/* View Details */}
+              <div className="text-xs text-[#0891b2] hover:text-[#0e7490] font-medium flex items-center gap-1">
+                View conversation
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
-              </button>
+              </div>
             </motion.div>
           ))}
         </div>
