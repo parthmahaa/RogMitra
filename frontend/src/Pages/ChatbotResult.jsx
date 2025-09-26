@@ -1,13 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  FaArrowLeft,
-  FaPaperPlane,
-  FaUser,
-  FaHistory,
-  FaPlus,
-} from 'react-icons/fa';
+import { FaArrowLeft, FaPaperPlane, FaUser, FaHistory, FaPlus, FaSpinner } from 'react-icons/fa';
 import { BsRobot } from 'react-icons/bs';
 import API from '../Services/api';
 import useAuthStore from '../store/store';
@@ -73,27 +67,79 @@ const ChatMessage = React.memo(({ text, isBot, timestamp }) => (
 const ChatbotResult = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { output, symptoms } = location.state || {};
+  const initialSession = location.state?.session || null;
 
+  // State declarations
+  const [session, setSession] = useState(initialSession);
   const [messages, setMessages] = useState([]);
   const [history, setHistory] = useState([]);
   const [selectedHistory, setSelectedHistory] = useState(null);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
 
   const { token } = useAuthStore();
   const messageIdRef = useRef(0);
   const messagesEndRef = useRef(null);
-
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const chatContainerRef = useRef(null);
 
   // Helper to compare history items
   const isSelectedHistory = (item) => {
     if (!selectedHistory) return false;
-    return (
-      item.date === selectedHistory.date &&
-      JSON.stringify(item.symptoms) === JSON.stringify(selectedHistory.symptoms)
-    );
+    return item.id === selectedHistory.id;
+  };
+
+  // Load conversation when a history item is clicked
+  const loadSessionConversation = async (historyItem) => {
+    if (!historyItem?.id) return;
+    
+    // Don't reload if already selected
+    if (selectedHistory?.id === historyItem.id) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      console.log('Loading session:', historyItem.id);
+      
+      // Fetch the session data
+      const response = await API.get(`/appointment/session/${historyItem.id}`);
+      const sessionData = response.data;
+      
+      console.log('Session data loaded:', sessionData);
+      
+      if (sessionData && sessionData.conversation?.length > 0) {
+        // Transform conversation to message format with consistent timestamps and IDs
+        const conversationMessages = sessionData.conversation.map((msg, index) => ({
+          isBot: msg.role === 'ai',
+          text: msg.content,
+          timestamp: sessionData.updatedAt || sessionData.createdAt,
+          messageId: `${sessionData._id}-${index}-${msg.role}`,
+        }));
+        
+        // Update messages with the loaded conversation
+        setMessages(conversationMessages);
+        
+        // Set the selected history item
+        setSelectedHistory(historyItem);
+        
+        // Update current session state
+        setSession({
+          ...sessionData,
+          _id: sessionData._id
+        });
+
+        // Update URL to include session ID for refresh persistence
+        const newUrl = `${location.pathname}?sessionId=${sessionData._id}`;
+        window.history.replaceState(null, '', newUrl);
+      }
+    } catch (error) {
+      console.error('Error loading session:', error);
+      setError('Failed to load conversation. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fetch user history
@@ -109,144 +155,140 @@ const ChatbotResult = () => {
     if (token) fetchHistory();
   }, [token]);
 
-  // Redirect if no output
+  // Redirect if no session, but try to restore from URL params first
   useEffect(() => {
-    if (!output) navigate('/appointment');
-  }, [output, navigate]);
+    const handleSessionRestore = async () => {
+      // If no session but we have URL params, try to restore the session
+      const urlParams = new URLSearchParams(location.search);
+      const sessionId = urlParams.get('sessionId');
+      
+      if (!session && sessionId) {
+        try {
+          const response = await API.get(`/appointment/session/${sessionId}`);
+          const sessionData = response.data;
+          setSession({
+            ...sessionData,
+            _id: sessionData._id
+          });
+          return; // Don't navigate away if we successfully restored
+        } catch (error) {
+          console.error('Failed to restore session:', error);
+        }
+      }
+      
+      // Only redirect if we still don't have a session after attempting restore
+      if (!session) {
+        navigate('/appointment');
+      }
+    };
+    
+    handleSessionRestore();
+  }, [session, navigate, location.search]);
 
-  // Initialize messages from history or current output
+  // Initialize messages from session conversation on component mount
   useEffect(() => {
-    const now = new Date();
-
-    if (selectedHistory) {
-      const initialMsgs = [
-        {
-          isBot: false,
-          text: `I'm experiencing: ${
-            Array.isArray(selectedHistory.symptoms)
-              ? selectedHistory.symptoms.join(', ')
-              : selectedHistory.symptoms
-          }`,
-          timestamp: selectedHistory.date || now,
-          messageId: messageIdRef.current + '-history-user',
-        },
-        {
-          isBot: true,
-          text:
-            (Array.isArray(selectedHistory.diagnosis)
-              ? `**Possible Diagnosis:**\n` +
-                selectedHistory.diagnosis
-                  .map(
-                    (diag, i) =>
-                      `${i + 1}. **${diag.condition}** (${diag.likelihood})\n*${diag.reasoning}*`
-                  )
-                  .join('\n\n')
-              : `**Possible Diagnosis:** ${selectedHistory.diagnosis}`) +
-            '\n\n' +
-            (Array.isArray(selectedHistory.recommendations)
-              ? `**Recommendations:**\n` +
-                selectedHistory.recommendations
-                  .map((rec, i) => `${i + 1}. ${rec}`)
-                  .join('\n')
-              : `**Recommendations:** ${selectedHistory.recommendations}`),
-          timestamp: selectedHistory.date || now,
-          messageId: messageIdRef.current + '-history-bot',
-        },
-      ];
-      setMessages(initialMsgs);
-    } else if (output) {
-      const initialMsgs = [
-        {
-          isBot: false,
-          text: `I'm experiencing: ${symptoms}`,
-          timestamp: now,
-          messageId: messageIdRef.current++,
-        },
-        {
-          isBot: true,
-          text:
-            (Array.isArray(output.diagnosis)
-              ? `**Possible Diagnosis:**\n` +
-                output.diagnosis
-                  .map(
-                    (diag, i) =>
-                      `${i + 1}. **${diag.condition}** (${diag.likelihood})\n*${diag.reasoning}*`
-                  )
-                  .join('\n\n')
-              : `**Possible Diagnosis:** ${output.diagnosis}`) +
-            '\n\n' +
-            (Array.isArray(output.recommendations)
-              ? `**Recommendations:**\n` +
-                output.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')
-              : `**Recommendations:** ${output.recommendations}`),
-          timestamp: now,
-          messageId: messageIdRef.current++,
-        },
-        {
-          isBot: true,
-          text: `Feel free to ask me any follow-up questions about your symptoms or results!`,
-          timestamp: now,
-          messageId: messageIdRef.current++,
-        },
-      ];
-      setMessages(initialMsgs);
+    if (session && session.conversation?.length > 0) {
+      const conversationMessages = session.conversation.map((msg, index) => ({
+        isBot: msg.role === 'ai',
+        text: msg.content,
+        timestamp: session.updatedAt || session.createdAt || new Date(session.createdAt), // Use consistent timestamp
+        messageId: `${session._id}-${index}-${msg.role}`, // Use session ID for consistent messageId
+      }));
+      
+      setMessages(conversationMessages);
+      
+      // If we have a session ID, try to find it in the history for selection
+      if (session._id && history.length > 0) {
+        const matchingHistory = history.find(h => h.id === session._id);
+        if (matchingHistory) {
+          setSelectedHistory(matchingHistory);
+        }
+      }
     }
-  }, [output, symptoms, selectedHistory]);
+  }, [session, history]);
+
+  // Scroll to bottom only when shouldAutoScroll is true - target the chat container specifically
+  useEffect(() => {
+    if (shouldAutoScroll && chatContainerRef.current) {
+      // Scroll the chat container to bottom, not the whole page
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      setShouldAutoScroll(false); // Reset after scrolling
+    }
+  }, [messages, shouldAutoScroll]);
 
   // Handle send
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
     setError('');
-
-    const userMsg = {
+    
+    // Add user message to the conversation
+    const userMessage = {
       isBot: false,
       text: input,
       timestamp: new Date(),
-      messageId: messageIdRef.current++,
+      messageId: `user-${Date.now()}`,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    
+    setMessages(prev => [...prev, userMessage]);
+    const userInput = input;
+    setInput('');
     setLoading(true);
-
+    
+    // Enable auto-scroll for new messages
+    setShouldAutoScroll(true);
+    
     try {
-      const context = {
-        symptoms,
-        analysis: output,
-        history: messages.map((m) => ({
-          role: m.isBot ? 'bot' : 'user',
-          content: m.text,
-        })),
-        question: input,
-      };
-      const response = await API.post('/appointment/chatbot', context);
+      // Send message to backend using /analyze endpoint with sessionId
+      const response = await API.post('/appointment/analyze', {
+        userInput: userInput,
+        sessionId: session?._id // Ensure the current session ID is sent
+      });
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          isBot: true,
-          text: response.data.reply || 'Sorry, I could not answer that.',
-          timestamp: new Date(),
-          messageId: messageIdRef.current++,
-        },
-      ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          isBot: true,
-          text: 'Sorry, there was an error processing your question.',
-          timestamp: new Date(),
-          messageId: messageIdRef.current++,
-        },
-      ]);
-      setError('Error communicating with chatbot.');
+      // Update the entire conversation from backend response
+      if (response.data?.conversation?.length > 0) {
+        // Transform the entire conversation to message format with consistent IDs
+        const updatedMessages = response.data.conversation.map((msg, index) => ({
+          isBot: msg.role === 'ai',
+          text: msg.content,
+          timestamp: response.data.updatedAt || new Date(),
+          messageId: `${response.data._id}-${index}-${msg.role}`,
+        }));
+        
+        // Replace all messages with the updated conversation
+        setMessages(updatedMessages);
+        
+        // Update session data with the response
+        // Crucially, update the session state with the full response from the backend.
+        // This ensures the session._id is available for the *next* message.
+        setSession(response.data);
+        
+        // Enable auto-scroll for AI responses
+        setShouldAutoScroll(true);
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
+      
+      // Remove the user message that was optimistically added
+      setMessages(prev => prev.slice(0, -1));
+      
+      // Add error message
+      const errorMessage = {
+        isBot: true,
+        text: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date(),
+        messageId: `error-${Date.now()}`,
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setShouldAutoScroll(true);
     } finally {
       setLoading(false);
-      setInput('');
+      setInput(''); // Clear input in finally block
     }
   };
 
-  if (!output) return null;
+  if (!session) return null;
 
   return (
     <>
@@ -279,22 +321,28 @@ const ChatbotResult = () => {
             ) : (
               <ul className="space-y-2">
                 {history.map((item, idx) => (
-                  <li key={idx}>
+                  <li key={item.id || idx}>
                     <button
-                      className={`w-full text-left p-3 rounded-lg border border-gray-200 transition-all hover:border-teal-300 hover:shadow-sm ${
+                      className={`w-full text-left p-3 rounded-lg border transition-all hover:border-teal-300 hover:shadow-sm ${
                         isSelectedHistory(item)
                           ? 'bg-teal-50 border-teal-300 ring-1 ring-teal-100'
-                          : 'bg-white'
+                          : 'bg-white border-gray-200'
+                      } ${
+                        loading && isSelectedHistory(item) ? 'opacity-70' : ''
                       }`}
-                      onClick={() => setSelectedHistory(item)}
+                      disabled={loading}
+                      onClick={() => loadSessionConversation(item)}
                     >
                       <div className="font-semibold text-gray-800 text-sm mb-1 line-clamp-1">
-                        {Array.isArray(item.symptoms)
-                          ? item.symptoms.join(', ')
-                          : item.symptoms}
+                        {Array.isArray(item.title)
+                          ? item.title.join(', ')
+                          : item.title}
                       </div>
                       <div className="text-xs text-gray-500 flex justify-between items-center">
-                        <span>
+                        <span className="flex items-center gap-1">
+                          {loading && isSelectedHistory(item) && (
+                            <FaSpinner className="animate-spin" size={10} />
+                          )}
                           {new Date(item.date).toLocaleDateString()}
                         </span>
                         <span>
@@ -337,6 +385,7 @@ const ChatbotResult = () => {
           {/* Chat Section */}
           <div className="flex-1 flex flex-col p-3 relative overflow-hidden">
             <div
+              ref={chatContainerRef}
               className="flex-1 overflow-y-auto pr-1 custom-scrollbar"
               style={{ height: '100%' }}
             >
@@ -371,7 +420,7 @@ const ChatbotResult = () => {
                   />
                 </svg>
                 {error}
-              </motion.div>
+                </motion.div>
             )}
 
             {/* Input */}

@@ -1,83 +1,123 @@
 import axios from 'axios';
-import History from '../models/History.js';
+import Session from '../models/Session.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 
 
 const analyzeSymptoms = async (req, res) => {
-  const { shivangNoLodo } = req.body;  
+  const { userInput, sessionId } = req.body;  
   const userId = req.isGuest ? null : req.user?._id;
   
-  if (!shivangNoLodo || typeof shivangNoLodo !== 'string') {  //"symptoms" TO BE CHANGED TO "userInput"
+  if (!userInput || typeof userInput !== 'string') {  //"symptoms" TO BE CHANGED TO "userInput"
     return res.status(400).json({ message: 'Symptoms are required and must be a string' });
   }
   
   const genAI=new GoogleGenerativeAI(process.env.GEMINI_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite"});
 
-  const promptTemplate = 
-  `You are an advanced AI medical assistant. Your task is to analyze a user's description of their symptoms and provide a concise analysis.
-
-Your output MUST be a single, valid JSON object with the following four keys: "symptoms", "diagnosis", "recommendations", and "report".
-
-- **symptoms**: An array of strings, listing the key identified symptoms. Use simple, common terms.
-- **diagnosis**: An array of objects, limited to the top 2 most likely conditions. Each object must have three keys: "condition", "likelihood" (High, Medium, or Low), and "reasoning" (a brief, one-sentence explanation).
-- **recommendations**: An array of up to 4 short, actionable recommendations. **The VERY FIRST recommendation must be a disclaimer to consult a healthcare professional.**
-- **report**: A single, one-sentence summary of the most likely condition.
-
----
-**EXAMPLE**
-
-**User Input:** "For the last three days, I've had a killer headache right behind my eyes. My nose is constantly running, I'm sneezing a ton, and I just feel achy and totally wiped out. No fever though."
-
-**Your JSON Output:**
-\`\`\`json
-{
-  "symptoms": [
-    "Headache",
-    "Runny Nose",
-    "Sneezing",
-    "Body Aches",
-    "Fatigue"
-  ],
-  "diagnosis": [
-    {
-      "condition": "Common Cold",
-      "likelihood": "High",
-      "reasoning": "Respiratory and systemic symptoms without a high fever are characteristic of a common cold."
-    },
-    {
-      "condition": "Sinusitis",
-      "likelihood": "Medium",
-      "reasoning": "The headache localized behind the eyes suggests possible sinus inflammation."
-    }
-  ],
-  "recommendations": [
-    "IMPORTANT: This AI analysis is not a substitute for professional medical advice. Please consult a healthcare provider.",
-    "Get adequate rest to help your body recover.",
-    "Stay hydrated by drinking plenty of fluids.",
-    "Consider over-the-counter medication for symptom relief."
-  ],
-  "report": "The symptoms are highly indicative of a common cold, with a potential for sinus involvement."
-}
-\`\`\`
----
-
-**Now, process the following user input:**
-
-**User Input:** {{USER_INPUT}}
-
-**Your JSON Output:**
+  
+  const initialPromptTemplate = `
+  You are an advanced medical AI. Analyze the user's first symptom message and return one JSON with keys: "symptoms", "diagnosis", "recommendations", "report", "conversation", "sessionTitle".
+  
+  Main Logic:
+  - If input is clear: fill all fields.
+  - If unclear: set symptoms/diagnosis/recommendations/report = null and ask one clarifying question.
+  
+  Field Rules:
+  - symptoms: array of extracted symptoms.
+  - diagnosis: up to 2 objects {condition, likelihood: High/Medium/Low, reasoning}.
+  - recommendations: up to 4 steps, first = IMPORTANT disclaimer to consult a provider.
+  - report: one-sentence summary of most likely condition.
+  - conversation: always 2 objects → {"user": input}, {"ai": response}.
+     - If clear: response = empathetic, natural, detailed explanation + advice, 20-50 words, no JSON jargon.
+     - If unclear: response = one clarifying question.
+  - sessionTitle: short (3–5 words) summary of main complaint.
+  
+  Example JSON (for sufficient input):
+  {
+    "symptoms": ["Stomach pain", "Bloating", "Nausea"],
+    "diagnosis": [
+      {"condition": "Indigestion", "likelihood": "High", "reasoning": "Symptoms align with indigestion."}
+    ],
+    "recommendations": [
+      "IMPORTANT: Please consult a healthcare provider.",
+      "Avoid spicy or fatty foods.",
+      "Drink peppermint tea."
+    ],
+    "report": "The symptoms strongly suggest indigestion.",
+    "conversation": [
+      {"user": "For two days, I’ve had stomach pain, bloating, and nausea."},
+      {"ai": "Based on what you've described, it's very likely indigestion. To help manage this, avoid spicy or fatty foods, drink peppermint tea, and rest. Most importantly, please see a healthcare provider. This analysis is not a substitute for professional care."}
+    ],
+    "sessionTitle": "Stomach Pain and Nausea"
+  }
+  
+  Now process this:
+  User Input: {{USER_INPUT}}
+  
+  Return only the JSON.
   `;
+  
+  
+  const contextPromptTemplate = `
+  You are a medical AI maintaining a diagnostic session JSON. Input: existing JSON + latest user message. Output: updated JSON only.
+  
+  Main Logic:
+  - If message clear: update symptoms, diagnosis, recommendations, report.
+  - If unclear: leave them unchanged, only ask one clarifying question.
+  
+  Field Rules:
+  - symptoms: array of extracted symptoms.
+  - diagnosis: up to 2 objects {condition, likelihood: High/Medium/Low, reasoning}.
+  - recommendations: up to 4 steps, first = IMPORTANT disclaimer to consult a provider.
+  - report: one-sentence summary of most likely condition.
+  - conversation: always append {"user": message}, then {"ai": response}.
+     - If clear: response must be empathetic, natural, and around 20–50 words. Include:
+        1) Acknowledge new info,
+        2) Explain most likely condition(s) with likelihood + reasoning,
+        3) Give actionable advice (first = consult provider),
+        4) End with a short summary.
+     - If unclear: response = one clarifying question.
+  - sessionTitle: usually same, change only if main topic shifts.
+  
+  Now process:
+  Existing JSON: {{EXISTING_JSON_DATA}}
+  Latest User Message: {{USER_INPUT}}
+  
+  Return only the JSON.
+  `;
+  
 
   try {
-    const finalprompt = promptTemplate.replace('{{USER_INPUT}}', shivangNoLodo /* "symptoms" TO BE CHANGED TO "userInput"*/);
+    let finalPrompt;
+    let existingSession = null;
+    if (sessionId) {
+      existingSession = await Session.findById(sessionId);
+      if (!existingSession) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
 
-    const result = await model.generateContent(finalprompt);
+      const existingDataForPrompt = {
+        symptoms: existingSession.symptoms,
+        diagnosis: existingSession.diagnosis,
+        recommendations: existingSession.recommendations,
+        report: existingSession.report,
+        conversation: existingSession.conversation.map(msg => ({ [msg.role]: msg.content })),
+        sessionTitle: existingSession.sessionTitle
+      };
+
+      finalPrompt = contextPromptTemplate
+        .replace('{{EXISTING_JSON_DATA}}', JSON.stringify(existingDataForPrompt))
+        .replace('{{USER_INPUT}}', userInput);
+
+    } else {
+      finalPrompt = initialPromptTemplate.replace('{{USER_INPUT}}', userInput);
+    }
+
+    const result = await model.generateContent(finalPrompt);
     const response = await result.response;
     const text = response.text();
 
-    // Improved JSON extraction: find the first '{' and last '}' and parse only that substring
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
@@ -86,78 +126,100 @@ Your output MUST be a single, valid JSON object with the following four keys: "s
     const cleanedJsonString = text.substring(firstBrace, lastBrace + 1);
     const parsedData = JSON.parse(cleanedJsonString);
 
-    const { symptoms, diagnosis, recommendations, report } = parsedData;
-    
-    if (userId) {
-      const history = new History({
-        userId,
-        symptoms: JSON.stringify(symptoms), 
-        diagnosis: JSON.stringify(diagnosis), 
-        recommendations: JSON.stringify(recommendations), 
-        report,
-      });
-      await history.save();
-    }
+    let savedSession;
+    const { symptoms, diagnosis, recommendations, report, conversation, sessionTitle } = parsedData;
 
-    res.json({ diagnosis, recommendations, report });
+    const conversationForDb = conversation.map(msg => {
+      const role = Object.keys(msg)[0];
+      const content = Object.values(msg)[0];
+      return { role, content };
+    });
+
+    const dataToSave = {
+      userId,
+      symptoms,
+      diagnosis,
+      recommendations,
+      report,
+      conversation: conversationForDb,
+      sessionTitle
+    };
+
+    if (existingSession) {
+      savedSession = await Session.findByIdAndUpdate(sessionId, dataToSave, { new: true, runValidators: true });
+    } else {
+      const newSession = new Session(dataToSave);
+      savedSession = await newSession.save();
+    }
     
+    res.json(savedSession);
+
   } catch (error) {
-    console.error('Gemini API error:', error.response?.data || error.message);
-    if (error.response?.status === 401) {
-      return res.status(401).json({ message: 'Invalid or missing Gemini API key. Please contact support.' });
-    }
-    if (error.response?.status === 429) {
-      return res.status(429).json({ message: 'Gemini API rate limit exceeded. Try again later.' });
-    }
-    if (error.response?.status === 404) {
-      return res.status(500).json({ message: 'Gemini model not found or endpoint is incorrect. Please check your API configuration.' });
-    }
-    res.status(500).json({ message: 'Error analyzing symptoms' });
+    console.error('API or processing error:', error);
+    res.status(500).json({ message: 'Error processing your request.' });
   }
 };
 
 const getHistory = async (req, res) => {
-  if (!req.user || !req.user._id) {
-    console.log('User object:', req.user, 'Headers:', req.headers);
+  // Check for authenticated user
+  if (req.isGuest || !req.user || !req.user._id) {
     return res.status(401).json({ message: 'Authentication required to view history' });
   }
+
   try {
-    const history = await History.find({ userId: req.user._id }).sort({ date: -1 });
-    // Parse JSON strings back to arrays/objects for frontend, with error handling
-    const parsedHistory = history.map(item => {
-      let symptoms = [];
-      let diagnosis = [];
-      let recommendations = [];
-      try {
-        symptoms = item.symptoms ? JSON.parse(item.symptoms) : [];
-      } catch (e) {
-        console.error('Error parsing symptoms JSON:', e.message, item.symptoms);
-        symptoms = item.symptoms;
-      }
-      try {
-        diagnosis = item.diagnosis ? JSON.parse(item.diagnosis) : [];
-      } catch (e) {
-        console.error('Error parsing diagnosis JSON:', e.message, item.diagnosis);
-        diagnosis = item.diagnosis;
-      }
-      try {
-        recommendations = item.recommendations ? JSON.parse(item.recommendations) : [];
-      } catch (e) {
-        console.error('Error parsing recommendations JSON:', e.message, item.recommendations);
-        recommendations = item.recommendations;
-      }
-      return {
-        ...item.toObject(),
-        symptoms,
-        diagnosis,
-        recommendations,
-      };
-    });
-    res.json(parsedHistory);
+    console.log(req.user);
+    const sessions = await Session.find({ userId: req.user._id })
+    .sort({ createdAt: -1 })
+    .select('sessionTitle createdAt');
+
+    const sessionList = sessions.map(session => ({
+      id: session._id,
+      title: session.sessionTitle || 'Untitled Session',
+      date: session.createdAt
+    }));
+
+    res.json(sessionList);
+
   } catch (error) {
     console.error('Error fetching history:', error.message);
     res.status(500).json({ message: 'Error fetching history' });
   }
 };
 
-export { analyzeSymptoms, getHistory };
+const getSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate session ID
+    if (!id) {
+      return res.status(400).json({ message: 'Session ID is required' });
+    }
+
+    // Remove any non-alphanumeric characters (like colons) from the ID
+    const cleanId = id.replace(/[^a-f0-9]/g, '');
+    
+    // Check if the ID is a valid MongoDB ObjectId (24 hex characters)
+    if (!/^[0-9a-fA-F]{24}$/.test(cleanId)) {
+      return res.status(400).json({ message: 'Invalid session ID format' });
+    }
+
+    const session = await Session.findById(cleanId);
+    
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if the authenticated user owns this session
+    if (req.user && session.userId && !session.userId.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to access this session' });
+    }
+
+    res.json(session);
+  } catch (error) {
+    console.error('Error fetching session:', error);
+    res.status(500).json({ message: 'Error fetching session', error: error.message });
+  }
+};
+
+
+export { analyzeSymptoms, getHistory, getSession };
